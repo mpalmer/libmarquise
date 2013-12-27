@@ -5,12 +5,12 @@ lib_LTLIBRARIES = libmarquise.la
 libmarquise_la_SOURCES = \
 	protobuf/DataFrame.pb-c.c \
 	protobuf/DataBurst.pb-c.c \
-	anchor_stats.c \
+	marquise.c \
 	frame.c \
 	defer.c \
 	varint.c \
 	lz4/lz4.c
-include_HEADERS = anchor_stats.h frame.h varint.h
+include_HEADERS = marquise.h frame.h varint.h
 
 bin_PROGRAMS = send_anchor_stat
 send_anchor_stat_SOURCES = send_anchor_stat.c
