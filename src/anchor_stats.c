@@ -275,7 +275,7 @@ static void *queue_loop( void *args_ptr ) {
                         // Oh god what? We should only ever get an ETERM.
                         if( errno != ETERM ) {
                                 syslog( LOG_ERR
-                                      , "libanchor_stats error: zmq_poll "
+                                      , "libmarquise error: zmq_poll "
                                                 "got unknown error code: %d"
                                       , errno );
                         }
