@@ -18,7 +18,8 @@ fail_if( assertion                                                       \
 	, "marquise_retrieve_from_file failed: %s", strerror( errno ) ); \
 } while( 0 )
 
-void process_defer_file(char *path) {
+void process_defer_file(char *path) 
+{
 	int fd = open(path, O_RDONLY);
 	bail_if(fd == -1,);
 	if (flock(fd, LOCK_EX | LOCK_NB) == -1) {
@@ -29,7 +30,6 @@ void process_defer_file(char *path) {
 		fprintf(stderr, "Could not lock %s: %s\n", path, strerror(errno));
 		goto defer_file_cleanup;
 	}
-	FILE *fi = fdopen(fd, "r");
 	struct stat buf;
 	if (fstat(fd, &buf) != 0) {
 		fprintf(stderr, "Could not stat %s: %s\n", path, strerror(errno));
@@ -39,6 +39,9 @@ void process_defer_file(char *path) {
 		printf("Deleting zero-size %s\n", path);
 		unlink(path);
 	}
+	// Of nonzero size and not locked, so we retry it
+	printf("Retrying %s...\n", path);
+	FILE *fi = fdopen(fd, "r");
 		
 defer_file_cleanup:
 	flock(fd, LOCK_UN);
