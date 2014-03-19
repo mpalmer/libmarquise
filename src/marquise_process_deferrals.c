@@ -12,11 +12,50 @@
 #include "marquise.h"
 #include "defer.h"
 
+#define POLLER_ADDRESS "inproc://poller"
+
 #define bail_if( assertion, action) do {                                 \
 fail_if( assertion                                                       \
 	, { action }; return;                                       \
-	, "marquise_retrieve_from_file failed: %s", strerror( errno ) ); \
+	, "%s", strerror( errno ) ); \
 } while( 0 )
+
+extern void *marquise_poller(void *argsp);
+
+void *start_poller(void *zmq_ctx, const char *broker) 
+{
+	poller_args *pargs = malloc(sizeof(poller_args));
+	if (pargs == NULL) {
+		perror("malloc");
+		return NULL;
+	}
+	pargs->collator_sock = zmq_socket(zmq_ctx, ZMQ_REP);
+	if (zmq_bind(pargs->collator_sock, POLLER_ADDRESS) != 0) {
+		perror("zmq_bind");
+		return NULL;
+	}
+	void *poller_sock = zmq_socket(zmq_ctx, ZMQ_REQ);
+	if (zmq_connect(poller_sock, POLLER_ADDRESS) != 0) {
+		perror("zmq_connect");
+		return NULL;
+	}
+	pargs->upstream_sock = zmq_socket(zmq_ctx, ZMQ_DEALER);
+	if (zmq_connect(pargs->upstream_sock, broker) != 0) {
+		perror("zmq_connect");
+		return NULL;
+	}
+	
+	/* We don't need to create a deferral file, for obvious 
+	 * reasons. */
+	pthread_t poller_thread;
+	if (pthread_create(&poller_thread, NULL, marquise_poller, pargs) != 0) {
+		perror("pthread_create");
+		zmq_close(pargs->upstream_sock);
+		return NULL;
+	}
+	return poller_sock;
+}
+	
 
 void process_defer_file(char *path) 
 {
@@ -50,8 +89,8 @@ defer_file_cleanup:
 
 int main(int argc, char **argv) 
 {
-	if (argc < 2) {
-		fprintf(stderr, "Usage: %s <defer_dir>\n", argv[0]);
+	if (argc < 3) {
+		fprintf(stderr, "Usage: %s <defer_dir> <broker>\n", argv[0]);
 		exit(1);
 	}
 	int template_len = strlen(deferral_file_template);
@@ -62,6 +101,8 @@ int main(int argc, char **argv)
 	strncpy(defer_prefix, &deferral_file_template[1], prefix_len);
 	defer_prefix[prefix_len-1] = '\0';
 	size_t defer_dir_len = strlen(argv[1]);
+	void *zmq_ctx = zmq_ctx_new();
+	void *poller_sock = start_poller(zmq_ctx, argv[2]);
 	DIR *defer_dir = opendir(argv[1]);
 	if (defer_dir == NULL) {
 		fprintf(stderr, "Could not open deferral directory %s: %s\n", argv[1], strerror(errno));
