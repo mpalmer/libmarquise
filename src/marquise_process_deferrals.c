@@ -79,6 +79,13 @@ void shutdown_poller(void *zmq_ctx, void *poller_sock) {
 	zmq_close(poller_sock);
 }	
 
+void shutdown(void *zmq_ctx, void *poller_sock) {
+	printf("Finished. Cleaning up.\n");
+	shutdown_poller(zmq_ctx, poller_sock);
+	zmq_ctx_destroy(zmq_ctx);
+	exit(0);
+}
+
 void process_defer_file(char *path) 
 {
 	int fd = open(path, O_RDONLY);
@@ -103,6 +110,20 @@ void process_defer_file(char *path)
 	// Of nonzero size and not locked, so we retry it
 	printf("Retrying %s...\n", path);
 	FILE *fi = fdopen(fd, "r");
+	deferral_file df;
+	df.path = path;
+	df.stream = fi;
+	df.fd = fd;
+	data_burst *burst;
+	int retrieved = 0;
+	for (;;) {
+		burst = marquise_retrieve_from_file(&df);
+		if (!burst) {
+			break;
+		}
+		retrieved++;
+	}
+	printf("Retrieved %d bursts from %s.\n", retrieved, path);
 		
 defer_file_cleanup:
 	flock(fd, LOCK_UN);
