@@ -55,7 +55,29 @@ void *start_poller(void *zmq_ctx, const char *broker)
 	}
 	return poller_sock;
 }
-	
+
+void shutdown_poller(void *zmq_ctx, void *poller_sock) {
+	int ret;
+	do {
+		ret = zmq_send(poller_sock, "DIE", 3, 0);
+	} while (ret == -1 && errno == EINTR);
+	if (ret == -1) {
+		perror("zmq_send");
+		return;
+	}
+
+	zmq_msg_t ack;
+	zmq_msg_init(&ack);
+	do {
+		ret = zmq_recvmsg(poller_sock, &ack, 0);
+	} while (ret == -1 && errno == EINTR);
+	if (ret == -1) {
+		perror("zmq_recvmsg");
+		return;
+	}
+	zmq_msg_close(&ack);
+	zmq_close(poller_sock);
+}	
 
 void process_defer_file(char *path) 
 {
